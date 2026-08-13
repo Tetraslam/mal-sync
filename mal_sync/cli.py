@@ -83,6 +83,8 @@ def fetch(output: Path) -> None:
                 episodes_watched=series.episodes_watched,
                 last_watched_at=series.last_watched_at,
             )
+            if not isinstance(item.get("mal_id"), int):
+                item["include"] = False
             items.append(item)
             reused += 1
             print(f"[{index}/{len(history)}] cached {search_title}")
@@ -95,9 +97,10 @@ def fetch(output: Path) -> None:
             candidates = []
         items.append(build_review_item(series, candidates))
     write_review(output, items)
-    unresolved = sum(item["mal_id"] is None for item in items)
+    unresolved = sum(item["mal_id"] is None and not item["include"] for item in items)
     print(
-        f"\nWrote {len(items)} shows to {output} ({reused} cached, {unresolved} need a MAL choice)."
+        f"\nWrote {len(items)} shows to {output} "
+        f"({reused} cached, {unresolved} unresolved and excluded)."
     )
     print("Delete unwanted show objects or set `include` to false, then run:")
     print(f"  mal-sync apply {output}")

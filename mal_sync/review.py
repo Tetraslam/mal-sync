@@ -10,7 +10,7 @@ from mal_sync.models import HistorySeries, MalCandidate, MalListEntry, SyncChang
 def build_review_item(series: HistorySeries, candidates: list[MalCandidate]) -> dict[str, Any]:
     selected = candidates[0].id if candidates and candidates[0].score >= 0.9 else None
     return {
-        "include": True,
+        "include": selected is not None,
         "crunchyroll_id": series.crunchyroll_id,
         "crunchyroll_title": series.crunchyroll_title,
         "season_title": series.season_title,

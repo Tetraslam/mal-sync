@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -14,6 +15,8 @@ from mal_sync.review import (
     print_changes,
     write_review,
 )
+
+GENERIC_SEASON_TITLE = re.compile(r"^(?:season|part)\s+\d+$", re.IGNORECASE)
 
 
 def parser() -> argparse.ArgumentParser:
@@ -42,16 +45,26 @@ def mal_client() -> MalClient:
     )
 
 
+def matching_title(series_title: str, season_title: str) -> str:
+    if GENERIC_SEASON_TITLE.fullmatch(season_title.strip()):
+        return f"{series_title} {season_title.strip()}"
+    return season_title or series_title
+
+
 def fetch(output: Path) -> None:
     config = load_config()
-    history = CrunchyrollClient(config.crunchyroll_token, config.crunchyroll_account_id).history()
+    history = CrunchyrollClient(
+        config.crunchyroll_token,
+        config.crunchyroll_account_id,
+        config.crunchyroll_browser,
+    ).history()
     if not history:
         print("Crunchyroll returned no episode history.")
         return
     mal = mal_client()
     items = []
     for index, series in enumerate(history, 1):
-        search_title = series.season_title or series.crunchyroll_title
+        search_title = matching_title(series.crunchyroll_title, series.season_title)
         print(f"[{index}/{len(history)}] matching {search_title}")
         items.append(build_review_item(series, mal.search(search_title)))
     write_review(output, items)

@@ -35,16 +35,11 @@ Tokens are refreshed and stored at `~/.config/mal-sync/mal-token.json`.
 
 ### Crunchyroll
 
-Crunchyroll has no public history API, so this uses the same authenticated endpoint as its website. To obtain a token:
+Sign in at <https://www.crunchyroll.com> in Zen, Firefox, Chromium, Chrome, or Brave. `mal-sync fetch` finds that browser session and exchanges it for a short-lived API token automatically. If the token expires during a run, the request is refreshed and retried once.
 
-1. Sign in at <https://www.crunchyroll.com/history>.
-2. Open browser developer tools, then the Network panel.
-3. Reload and select the request whose URL ends in `/watch-history`.
-4. Copy the value after `Bearer ` from its `Authorization` request header into `crunchyroll_token`.
+Set `crunchyroll_browser` to `auto` (the default), `zen`, `firefox`, `chromium`, `chrome`, or `brave`. No Crunchyroll token or account ID belongs in the config. You can use environment variables instead of the config file: `CRUNCHYROLL_BROWSER`, `MAL_CLIENT_ID`, `MAL_CLIENT_SECRET`, and `MAL_REDIRECT_URI`.
 
-The account ID is normally read from the token. If that fails, copy the ID from the `/content/v2/<account-id>/watch-history` request URL into `crunchyroll_account_id`.
-
-Crunchyroll tokens expire. Fetch a fresh one when the CLI reports a 401. You can use environment variables instead of the config file: `CRUNCHYROLL_TOKEN`, `CRUNCHYROLL_ACCOUNT_ID`, `MAL_CLIENT_ID`, `MAL_CLIENT_SECRET`, and `MAL_REDIRECT_URI`.
+Crunchyroll has no public history API. This integration uses its website session and may need updates when Crunchyroll changes its authentication flow.
 
 ## Use
 

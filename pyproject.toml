@@ -5,6 +5,7 @@ description = "Review and sync Crunchyroll watch history to MyAnimeList"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "browser-cookie3>=0.20.1",
     "httpx>=0.28.1",
 ]
 

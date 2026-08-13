@@ -47,7 +47,8 @@ def mal_client() -> MalClient:
 
 def matching_title(series_title: str, season_title: str) -> str:
     if GENERIC_SEASON_TITLE.fullmatch(season_title.strip()):
-        return f"{series_title} {season_title.strip()}"
+        combined = f"{series_title} {season_title.strip()}"
+        return combined if len(combined) <= 64 else series_title
     return season_title or series_title
 
 
@@ -66,7 +67,12 @@ def fetch(output: Path) -> None:
     for index, series in enumerate(history, 1):
         search_title = matching_title(series.crunchyroll_title, series.season_title)
         print(f"[{index}/{len(history)}] matching {search_title}")
-        items.append(build_review_item(series, mal.search(search_title)))
+        try:
+            candidates = mal.search(search_title)
+        except MalError as error:
+            print(f"  warning: MAL search failed: {error}", file=sys.stderr)
+            candidates = []
+        items.append(build_review_item(series, candidates))
     write_review(output, items)
     unresolved = sum(item["mal_id"] is None for item in items)
     print(f"\nWrote {len(items)} shows to {output} ({unresolved} need a MAL choice).")

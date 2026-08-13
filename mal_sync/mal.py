@@ -20,6 +20,14 @@ class MalError(RuntimeError):
     pass
 
 
+def search_query(title: str) -> str:
+    query = " ".join(title.split())
+    if len(query) <= 64:
+        return query
+    truncated = query[:64]
+    return truncated.rsplit(" ", 1)[0] or truncated
+
+
 class MalClient:
     def __init__(
         self,
@@ -141,15 +149,23 @@ class MalClient:
         return response
 
     def search(self, title: str, limit: int = 10) -> list[MalCandidate]:
-        response = self._request(
-            "GET",
-            "https://api.myanimelist.net/v2/anime",
-            params={
-                "q": title,
-                "limit": limit,
-                "fields": "alternative_titles,num_episodes,media_type,status",
-            },
-        )
+        query = search_query(title)
+        if len(query) < 3:
+            return []
+        try:
+            response = self._request(
+                "GET",
+                "https://api.myanimelist.net/v2/anime",
+                params={
+                    "q": query,
+                    "limit": limit,
+                    "fields": "alternative_titles,num_episodes,media_type,status",
+                },
+            )
+        except MalError as error:
+            if "HTTP 400" in str(error):
+                return []
+            raise
         nodes = [item["node"] for item in response.json().get("data", [])]
         return rank_candidates(title, nodes)
 

@@ -52,6 +52,10 @@ def matching_title(series_title: str, season_title: str) -> str:
     return season_title or series_title
 
 
+def review_key(item) -> tuple[str, str]:
+    return str(item.get("crunchyroll_id", "")), str(item.get("season_title", ""))
+
+
 def fetch(output: Path) -> None:
     config = load_config()
     history = CrunchyrollClient(
@@ -63,9 +67,26 @@ def fetch(output: Path) -> None:
         print("Crunchyroll returned no episode history.")
         return
     mal = mal_client()
+    cached = {}
+    if output.exists():
+        cached = {review_key(item): item for item in load_review(output)}
     items = []
+    reused = 0
     for index, series in enumerate(history, 1):
         search_title = matching_title(series.crunchyroll_title, series.season_title)
+        key = (series.crunchyroll_id, series.season_title)
+        previous = cached.get(key)
+        if previous and previous.get("candidates"):
+            item = dict(previous)
+            item.update(
+                crunchyroll_title=series.crunchyroll_title,
+                episodes_watched=series.episodes_watched,
+                last_watched_at=series.last_watched_at,
+            )
+            items.append(item)
+            reused += 1
+            print(f"[{index}/{len(history)}] cached {search_title}")
+            continue
         print(f"[{index}/{len(history)}] matching {search_title}")
         try:
             candidates = mal.search(search_title)
@@ -75,7 +96,9 @@ def fetch(output: Path) -> None:
         items.append(build_review_item(series, candidates))
     write_review(output, items)
     unresolved = sum(item["mal_id"] is None for item in items)
-    print(f"\nWrote {len(items)} shows to {output} ({unresolved} need a MAL choice).")
+    print(
+        f"\nWrote {len(items)} shows to {output} ({reused} cached, {unresolved} need a MAL choice)."
+    )
     print("Delete unwanted show objects or set `include` to false, then run:")
     print(f"  mal-sync apply {output}")
 

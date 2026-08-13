@@ -56,7 +56,7 @@ uv run mal-sync apply review.json
 
 Each review entry includes the Crunchyroll title and progress, an `include` switch, the selected `mal_id`, and up to five ranked MAL candidates. Automatic selection only happens for high-confidence title matches.
 
-The review file is reusable. You can keep it outside the repository, edit episode counts manually, or generate a named snapshot with `mal-sync fetch --output my-history.json`.
+The review file is reusable. A later `fetch` preserves existing matches and manual choices, updates episode progress, and queries MAL only for new or previously failed entries. Requests are paced and retried when MAL throttles them. You can keep the file outside the repository or generate a named snapshot with `mal-sync fetch --output my-history.json`.
 
 ## Development
 

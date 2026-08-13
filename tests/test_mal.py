@@ -16,6 +16,7 @@ def client_with(handler) -> MalClient:
         client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
     client.token = {"access_token": "token", "expires_at": 9999999999}
+    client._pace = lambda: None
     return client
 
 
@@ -50,3 +51,24 @@ def test_server_error_is_not_silenced() -> None:
 
     with pytest.raises(MalError, match="HTTP 500"):
         client_with(handler).search("valid title")
+
+
+def test_edge_redirect_is_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = 0
+    delays = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(
+                307,
+                headers={"location": "https://myanimelist.net/error.json"},
+                request=request,
+            )
+        return httpx.Response(200, json={"data": []}, request=request)
+
+    monkeypatch.setattr("mal_sync.mal.time.sleep", delays.append)
+    assert client_with(handler).search("valid title") == []
+    assert calls == 2
+    assert delays == [5]

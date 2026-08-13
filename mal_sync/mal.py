@@ -43,8 +43,17 @@ class MalClient:
         self.client_secret = client_secret
         self.redirect_uri = redirect_uri
         self.token_path = token_path
-        self.client = client or httpx.Client(timeout=30)
+        self.client = client or httpx.Client(
+            headers={"User-Agent": "mal-sync/0.1 (https://github.com/Tetraslam/mal-sync)"},
+            timeout=30,
+        )
         self.token = read_json(token_path)
+        self._last_request_at = 0.0
+
+    def _pace(self) -> None:
+        wait = 0.7 - (time.monotonic() - self._last_request_at)
+        if wait > 0:
+            time.sleep(wait)
 
     def _save_token(self, token: dict[str, Any]) -> None:
         if not token.get("refresh_token") and self.token.get("refresh_token"):
@@ -140,13 +149,28 @@ class MalClient:
     def _request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
         headers = {**kwargs.pop("headers", {})}
         headers["Authorization"] = f"Bearer {self._access_token()}"
-        response = self.client.request(method, url, headers=headers, **kwargs)
-        try:
-            response.raise_for_status()
-        except httpx.HTTPStatusError as error:
-            message = response.text[:300]
-            raise MalError(f"MAL request failed: HTTP {response.status_code}: {message}") from error
-        return response
+        for attempt in range(4):
+            self._pace()
+            response = self.client.request(method, url, headers=headers, **kwargs)
+            self._last_request_at = time.monotonic()
+            edge_redirect = response.status_code == 307 and "error.json" in response.headers.get(
+                "location", ""
+            )
+            cloudfront_block = response.status_code == 403 and "cloudfront" in response.text.lower()
+            if (response.status_code == 429 or edge_redirect or cloudfront_block) and attempt < 3:
+                retry_after = response.headers.get("retry-after", "")
+                delay = int(retry_after) if retry_after.isdigit() else 5 * 2**attempt
+                time.sleep(delay)
+                continue
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as error:
+                message = response.text[:300]
+                raise MalError(
+                    f"MAL request failed: HTTP {response.status_code}: {message}"
+                ) from error
+            return response
+        raise AssertionError("unreachable")
 
     def search(self, title: str, limit: int = 10) -> list[MalCandidate]:
         query = search_query(title)
